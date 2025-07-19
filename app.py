@@ -155,13 +155,14 @@ def train_prediction_model(X_data, y_data, numerical_features, categorical_featu
 # --- Main Application Logic ---
 
 # Load and preprocess data
-data = load_and_preprocess_data('adult 3.csv')
+data = load_and_preprocess_data('adult_combined.csv')
 
 # Define features (X) and target (y)
 X = data.drop('income', axis=1)
 y = data['income']
 
 # Identify categorical and numerical columns for preprocessing
+# IMPORTANT: Ensure 'gender' is in categorical_cols if it's an object type
 categorical_cols = X.select_dtypes(include='object').columns.tolist()
 numerical_cols = X.select_dtypes(include=['int64', 'float64']).columns.tolist()
 
@@ -190,9 +191,10 @@ with col1:
     occupation = st.selectbox("Occupation", data['occupation'].unique(), help="Occupation of the employee")
 
 with col2:
+    # Changed 'sex' to 'gender' here
+    gender = st.selectbox("Gender", data['gender'].unique(), help="Gender of the employee")
     relationship = st.selectbox("Relationship", data['relationship'].unique(), help="Relationship status (e.g., Husband, Not-in-family)")
     race = st.selectbox("Race", data['race'].unique(), help="Racial background")
-    sex = st.selectbox("Sex", data['sex'].unique(), help="Gender of the employee")
     capital_gain = st.number_input("Capital Gain", min_value=0, value=0, help="Capital gains from investments")
     capital_loss = st.number_input("Capital Loss", min_value=0, value=0, help="Capital losses from investments")
     hours_per_week = st.number_input("Hours per Week", min_value=1, max_value=99, value=40, help="Number of hours worked per week")
@@ -208,7 +210,7 @@ input_data = pd.DataFrame([{
     'occupation': occupation,
     'relationship': relationship,
     'race': race,
-    'sex': sex,
+    'gender': gender, # Changed 'sex' to 'gender' here
     'capital-gain': capital_gain,
     'capital-loss': capital_loss,
     'hours-per-week': hours_per_week,
@@ -253,6 +255,7 @@ if uploaded_file is not None:
         st.dataframe(batch_data.head())
 
         # Check if all required columns are present in the uploaded batch data
+        # IMPORTANT: Ensure 'gender' is in this list if it's expected in batch uploads
         required_cols = X.columns.tolist() # Get columns from the training data
         missing_cols = [col for col in required_cols if col not in batch_data.columns]
 
