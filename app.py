@@ -93,8 +93,8 @@ def load_and_preprocess_data(file_path):
         data = data[data['education'] != '5th-6th']
         data = data[data['education'] != 'Preschool']
 
-        # Drop 'education' column as 'educational-num' provides similar info
-        data.drop(columns=['education'], inplace=True)
+        # NOTE: 'education' column is now kept as it's an input feature
+        # No longer dropping 'education' column here.
 
         # Outlier handling for 'age'
         data = data[(data['age'] <= 75) & (data['age'] >= 17)]
@@ -103,7 +103,7 @@ def load_and_preprocess_data(file_path):
         upper_bound_cg = data['capital-gain'].quantile(0.99)
         data['capital-gain'] = np.where(data['capital-gain'] > upper_bound_cg, upper_bound_cg, data['capital-gain'])
 
-        # Educational-num outlier handling
+        # Educational-num outlier handling (still needed as a feature)
         data = data[(data['educational-num'] <= 16) & (data['educational-num'] >= 5)]
 
         # Convert 'income' to numerical (target variable: 0 for <=50K, 1 for >50K)
@@ -154,7 +154,7 @@ def train_prediction_model(X_data, y_data, numerical_features, categorical_featu
 
 # --- Main Application Logic ---
 
-# Load and preprocess data
+# Load and preprocess data (using 'adult 3.csv' as requested)
 data = load_and_preprocess_data('adult 3.csv')
 
 # Define features (X) and target (y)
@@ -162,12 +162,20 @@ X = data.drop('income', axis=1)
 y = data['income']
 
 # Identify categorical and numerical columns for preprocessing
-# IMPORTANT: Ensure 'gender' is in categorical_cols if it's an object type
 categorical_cols = X.select_dtypes(include='object').columns.tolist()
 numerical_cols = X.select_dtypes(include=['int64', 'float64']).columns.tolist()
 
 # Train the model pipeline
 model_pipeline = train_prediction_model(X, y, numerical_cols, categorical_cols)
+
+# --- Get default values for features not directly inputted by the user ---
+# These defaults will be used to fill the full input DataFrame for prediction
+default_feature_values = {}
+for col in X.columns:
+    if col in numerical_cols:
+        default_feature_values[col] = data[col].median()
+    elif col in categorical_cols:
+        default_feature_values[col] = data[col].mode()[0]
 
 # --- Streamlit UI ---
 st.markdown("<h1 class='main-header'>Employee Salary Predictor 💰</h1>", unsafe_allow_html=True)
@@ -177,44 +185,33 @@ st.markdown("""
     The prediction is powered by a K-Nearest Neighbors (KNN) classification model.
 """)
 
-st.markdown("<h2 class='subheader'>👤 Predict for a Single Employee</h2>", unsafe_allow_html=True)
+st.markdown("<h2 class='subheader'>👤 Enter Employee Details</h2>", unsafe_allow_html=True) # Changed header text
 
-# Input fields for user
+# Input fields for user (only the requested columns)
 col1, col2 = st.columns(2)
 
 with col1:
-    age = st.number_input("Age", min_value=17, max_value=75, value=35, help="Age of the employee (17-75 years)")
-    workclass = st.selectbox("Workclass", data['workclass'].unique(), help="Type of employer (e.g., Private, Self-emp-not-inc)")
-    fnlwgt = st.number_input("Final Weight (fnlwgt)", min_value=10000, value=150000, help="The number of people the census believes the entry represents")
-    educational_num = st.slider("Years of Education (educational-num)", min_value=5, max_value=16, value=9, help="Number of years of education completed (5-16)")
-    marital_status = st.selectbox("Marital Status", data['marital-status'].unique(), help="Marital status of the employee")
-    occupation = st.selectbox("Occupation", data['occupation'].unique(), help="Occupation of the employee")
-
-with col2:
+    age = st.number_input("Age", min_value=17, max_value=75, value=30, help="Age of the employee (17-75 years)")
     gender = st.selectbox("Gender", data['gender'].unique(), help="Gender of the employee")
-    relationship = st.selectbox("Relationship", data['relationship'].unique(), help="Relationship status (e.g., Husband, Not-in-family)")
-    race = st.selectbox("Race", data['race'].unique(), help="Racial background")
-    capital_gain = st.number_input("Capital Gain", min_value=0, value=0, help="Capital gains from investments")
-    capital_loss = st.number_input("Capital Loss", min_value=0, value=0, help="Capital losses from investments")
-    hours_per_week = st.number_input("Hours per Week", min_value=1, max_value=99, value=40, help="Number of hours worked per week")
-    native_country = st.selectbox("Native Country", data['native-country'].unique(), help="Country of origin")
+    education_level = st.selectbox("Education Level", data['education'].unique(), help="Highest level of education achieved") # Changed to 'education'
+    
+with col2:
+    job_title = st.selectbox("Job Title", data['occupation'].unique(), help="Occupation of the employee") # Changed to 'occupation'
+    years_experience = st.number_input("Years of Experience", min_value=0, max_value=50, value=5, help="Years of formal education (maps to educational-num)") # Maps to educational-num
 
-# Create a DataFrame from user input
-input_data = pd.DataFrame([{
-    'age': age,
-    'workclass': workclass,
-    'fnlwgt': fnlwgt,
-    'educational-num': educational_num,
-    'marital-status': marital_status,
-    'occupation': occupation,
-    'relationship': relationship,
-    'race': race,
-    'gender': gender,
-    'capital-gain': capital_gain,
-    'capital-loss': capital_loss,
-    'hours-per-week': hours_per_week,
-    'native-country': native_country
-}])
+# Create a DataFrame with all columns, initialized with default values
+# Then overwrite with user-provided values for the selected inputs
+input_data_full = pd.DataFrame([default_feature_values])
+
+# Overwrite with user-provided values
+input_data_full['age'] = age
+input_data_full['gender'] = gender
+input_data_full['education'] = education_level
+input_data_full['occupation'] = job_title
+input_data_full['educational-num'] = years_experience
+
+# Ensure column order matches X.columns (critical for the model pipeline)
+input_data = input_data_full[X.columns]
 
 # Prediction button
 if st.button("Predict Salary"):
@@ -237,54 +234,6 @@ if st.button("Predict Salary"):
         st.warning("Please ensure all input fields are correctly filled and the dataset is loaded.")
 
 st.markdown("---")
-
-# --- Batch Prediction Section ---
-st.markdown("<h2 class='subheader'>📂 Batch Prediction</h2>", unsafe_allow_html=True)
-st.markdown("""
-    Upload a CSV file containing multiple employee records to get batch salary predictions.
-    The uploaded CSV should have the same column names as the input features (e.g., `age`, `workclass`, `fnlwgt`, etc.).
-""")
-
-uploaded_file = st.file_uploader("Upload a CSV file for batch prediction", type=["csv"])
-
-if uploaded_file is not None:
-    try:
-        batch_data = pd.read_csv(uploaded_file)
-        st.write("Uploaded data preview:")
-        st.dataframe(batch_data.head())
-
-        # Check if all required columns are present in the uploaded batch data
-        required_cols = X.columns.tolist()
-        missing_cols = [col for col in required_cols if col not in batch_data.columns]
-
-        if missing_cols:
-            st.error(f"Error: The uploaded CSV is missing the following required columns: `{', '.join(missing_cols)}`")
-            st.warning("Please ensure your CSV file has all the necessary feature columns.")
-            st.stop()
-
-        # Make batch predictions
-        batch_predictions = model_pipeline.predict(batch_data)
-        batch_data['Predicted Income'] = np.where(batch_predictions == 1, '>50K', '<=50K')
-
-        st.markdown("### ✅ Predictions for Batch Data:")
-        st.dataframe(batch_data.head())
-
-        # Provide download button for predictions
-        csv = batch_data.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="Download Predictions CSV",
-            data=csv,
-            file_name='predicted_salaries.csv',
-            mime='text/csv',
-            help="Click to download the CSV with predictions."
-        )
-    except pd.errors.EmptyDataError:
-        st.error("Error: The uploaded CSV file is empty. Please upload a non-empty file.")
-    except Exception as e:
-        st.error(f"An unexpected error occurred during batch prediction: {e}")
-        st.warning("Please ensure your CSV file is correctly formatted and contains valid data.")
-
-st.markdown("---")
 st.markdown("© 2025 Internship Project") # Kept this as a standard project footer
 
 # --- Sidebar Content ---
@@ -298,11 +247,11 @@ st.sidebar.info(
 st.sidebar.header("How it Works")
 st.sidebar.markdown(
     """
-    1.  **Data Loading & Preprocessing:** The `adult_combined.csv` dataset is loaded, cleaned, and preprocessed
+    1.  **Data Loading & Preprocessing:** The `adult 3.csv` dataset is loaded, cleaned, and preprocessed
         (handling missing values, outliers, and encoding categorical features).
     2.  **Model Training:** A KNN model is trained on the preprocessed data.
-    3.  **Prediction:** User inputs (single or batch) are preprocessed using the same pipeline
-        and fed to the trained model for salary prediction.
+    3.  **Prediction:** User inputs are taken for key features, and other features are filled with default values.
+        The combined data is then fed to the trained model for salary prediction.
     """
 )
 st.sidebar.header("Dataset Used")
