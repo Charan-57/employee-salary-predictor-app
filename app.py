@@ -191,7 +191,6 @@ with col1:
     occupation = st.selectbox("Occupation", data['occupation'].unique(), help="Occupation of the employee")
 
 with col2:
-    # Changed 'sex' to 'gender' here
     gender = st.selectbox("Gender", data['gender'].unique(), help="Gender of the employee")
     relationship = st.selectbox("Relationship", data['relationship'].unique(), help="Relationship status (e.g., Husband, Not-in-family)")
     race = st.selectbox("Race", data['race'].unique(), help="Racial background")
@@ -210,7 +209,7 @@ input_data = pd.DataFrame([{
     'occupation': occupation,
     'relationship': relationship,
     'race': race,
-    'gender': gender, # Changed 'sex' to 'gender' here
+    'gender': gender,
     'capital-gain': capital_gain,
     'capital-loss': capital_loss,
     'hours-per-week': hours_per_week,
@@ -255,8 +254,7 @@ if uploaded_file is not None:
         st.dataframe(batch_data.head())
 
         # Check if all required columns are present in the uploaded batch data
-        # IMPORTANT: Ensure 'gender' is in this list if it's expected in batch uploads
-        required_cols = X.columns.tolist() # Get columns from the training data
+        required_cols = X.columns.tolist()
         missing_cols = [col for col in required_cols if col not in batch_data.columns]
 
         if missing_cols:
@@ -287,7 +285,7 @@ if uploaded_file is not None:
         st.warning("Please ensure your CSV file is correctly formatted and contains valid data.")
 
 st.markdown("---")
-st.caption("🚀 Built with Streamlit for your internship project.")
+st.markdown("© 2025 Internship Project") # Kept this as a standard project footer
 
 # --- Sidebar Content ---
 st.sidebar.header("About This App")
