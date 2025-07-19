@@ -155,7 +155,7 @@ def train_prediction_model(X_data, y_data, numerical_features, categorical_featu
 # --- Main Application Logic ---
 
 # Load and preprocess data
-data = load_and_preprocess_data('adult_combined.csv')
+data = load_and_preprocess_data('adult 3.csv')
 
 # Define features (X) and target (y)
 X = data.drop('income', axis=1)
